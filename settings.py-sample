@@ -1,0 +1,21 @@
+EMAIL_USE_TLS = True
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_HOST_USER = "somerandomemail@gmail.com"
+EMAIL_HOST_PASSWORD = "myverysecurepassword"
+EMAIL_PORT = 587
+EMAIL_FROM = "somerandomemail@gmail.com"
+EMAIL_TO = "myemailaddress@mydomain.com"
+UPDATES_TO_CHECK = [
+    {
+        "type": "jira",
+        "url": "https://www.server.com:8080/jira",
+        "username": "pippo",
+        "password": "topolinia",
+    },
+    {
+        "type": "confluence",
+        "url": "https://www.server.com:8081/confluence",
+        "username": "pippo",
+        "password": "topolinia",
+    },
+]
