@@ -18,6 +18,7 @@ import smtplib
 import sys
 from typing import Dict, List, Optional
 
+import atlassian
 import requests
 
 
@@ -101,22 +102,54 @@ def send_email(to: str, subject: str, body: str):
         server.sendmail(EMAIL_FROM, to, message.as_string())
 
 
-def notify_update(check: Dict[str, str], update: Dict[str, str]):
+def notify_update(
+    check: Dict[str, str], update: Dict[str, str], jira_key: Optional[str]
+):
     """
     Notify an available update.
     """
     app = check["name"]
-    send_email(
-        EMAIL_TO,
-        f"{check['name']} update available",
-        f"""There is a new update for {check["name"]}:
+    body = f"""There is a new update for {check["name"]}:
 
-Current version   {update["current"]}
-New version       {update["available"]}
+Current version: {update["current"]}
+New version: {update["available"]}"""
+    if jira_key:
+        jira_url = os.path.join(JIRA["url"], "browse", jira_key)
+        body += f"""
+Jira link: {jira_url}"""
+    else:
+        body += """
+Jira ticket creation went wrong."""
+    body += """
 
 --
-Update Check""",
+Update Check"""
+    send_email(
+        EMAIL_TO, f"{check['name']} update available", body,
     )
+
+
+def add_jira_ticket(check: Dict[str, str], update: Dict[str, str]) -> str:
+    """
+    Add a Jira ticket to track the update.
+    """
+    summary = f"Update {check['name']} to {update['available']}."
+    fields = {
+        "issuetype": {"name": check["jira_issue_type"]},
+        "description": summary,
+        "project": {"key": check["jira_project"]},
+        "summary": summary,
+        "assignee": {"name": check["jira_assigned_to"]},
+    }
+    for key, value in check.items():
+        if key.startswith("jira_customfield"):
+            field_name = key[5:]  # Remove the "jira_" prefix
+            fields[field_name] = {"value": value}
+    jira = atlassian.Jira(
+        url=JIRA["url"], username=JIRA["username"], password=JIRA["password"]
+    )
+    result = jira.issue_create(fields)
+    return result["key"]
 
 
 def check_updates(updates_to_check: List[Dict[str, str]]):
@@ -129,7 +162,12 @@ def check_updates(updates_to_check: List[Dict[str, str]]):
         else:
             continue
         if update:
-            notify_update(check, update)
+            jira_key = None  # type: Optional[str]
+            try:
+                jira_key = add_jira_ticket(check, update)
+            except:
+                pass
+            notify_update(check, update, jira_key)
 
 
 if __name__ == "__main__":
